@@ -1,0 +1,20 @@
+FROM public.ecr.aws/t2e3n6p8/debian-buster-tflite:latest as build-tf
+
+FROM golang:1.16
+
+# copy required libs for tflite
+COPY --from=build-tf /usr/local/lib/libtensorflowlite_c.so /usr/local/lib/libtensorflowlite_c.so
+COPY --from=build-tf /usr/local/include/tensorflow /usr/local/include/tensorflow
+ENV LD_LIBRARY_PATH $LD_LIBRARY_PATH:/usr/local/lib
+
+# To avoid error 'could not determine kind of name for C.TfLiteInterpreterOptionsSetUseNNAPI' on m1 mac
+ENV GO_TFLITE_VERSION 30f5e2a268d2eb053f758636609c5c379a3016b5
+
+WORKDIR /go/src/github.com/mattn
+RUN git clone https://github.com/mattn/go-tflite.git && \
+    cd go-tflite && \
+    git checkout ${GO_TFLITE_VERSION}
+
+# run fizzbuzz model
+WORKDIR /go/src/github.com/mattn/go-tflite/_example/fizzbuzz
+RUN go run ./main.go

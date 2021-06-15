@@ -1,0 +1,32 @@
+FROM public.ecr.aws/t2e3n6p8/lambda-al2-tflite:latest as build-tf
+
+FROM public.ecr.aws/lambda/provided:al2
+
+# copy required libs for tflite
+COPY --from=build-tf /usr/local/lib/libtensorflowlite_c.so /usr/local/lib/libtensorflowlite_c.so
+COPY --from=build-tf /usr/local/include/tensorflow /usr/local/include/tensorflow
+ENV LD_LIBRARY_PATH $LD_LIBRARY_PATH:/usr/local/lib
+
+# setting path for golang
+ENV PATH $PATH:/usr/local/go/bin
+
+RUN yum install -y tar gzip git gcc
+
+ENV GOLANG_VERSION 1.16.5
+
+# install golang
+RUN curl -sLO https://golang.org/dl/go${GOLANG_VERSION}.linux-amd64.tar.gz \
+    && rm -rf /usr/local/go \
+    && tar -C /usr/local -xzf go${GOLANG_VERSION}.linux-amd64.tar.gz
+
+# To avoid error 'could not determine kind of name for C.TfLiteInterpreterOptionsSetUseNNAPI' on m1 mac
+ENV GO_TFLITE_VERSION 30f5e2a268d2eb053f758636609c5c379a3016b5
+
+WORKDIR /go/src/github.com/mattn
+RUN git clone https://github.com/mattn/go-tflite.git && \
+    cd go-tflite && \
+    git checkout ${GO_TFLITE_VERSION}
+
+# run fizzbuzz model
+WORKDIR /go/src/github.com/mattn/go-tflite/_example/fizzbuzz
+RUN go run ./main.go
